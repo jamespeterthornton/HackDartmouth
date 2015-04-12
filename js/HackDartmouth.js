@@ -6,6 +6,25 @@ var globes = [];
 var selectedGlobe;
 var selection = 0;
 var originalMatrix;
+var countries;
+var ready = 0;
+var readyCount = 2;
+
+//var countryLL = {};
+
+var textMeshes = [];
+
+var chinaData, japanData, USData;
+
+function begin() {
+
+    console.log("begin!");
+
+    initCountry();
+    initScene();
+    initRenderer();
+    render();
+}
 
 window.addEventListener("load", function() {
     if (navigator.getVRDevices) {
@@ -70,24 +89,61 @@ function resetGlobeRotation(globe, step) {
     } 
 }
 
-
 Papa.parse("data/China_Imports_Exports.csv", {
     download: true,
     dynamicTyping: true,
     complete: function(results) {
-        handleData(results.data);
+        var dataArray = results.data;
+        console.log(dataArray);
+        var results = [];
+        for (var i = 1; i < dataArray.length; i++) {
+            var info = dataArray[i];
+            var entry = {"country" : info[0], "partner" : info[1], "type" : info[3], 
+                "value" : info[6]};
+            results.push(entry);
+        }
+        chinaData = results;
+        if(ready > readyCount) begin();
+        else ready++;
     }
 });
 
-function handleData (dataArray) {
-    var results = [];
-    for (var i = 1; i < dataArray.length; i++) {
-        var info = dataArray[i];
-        var entry = {"country" : info[0], "partner" : info[1], "value" : info[6]};
-        results.push(entry);
+Papa.parse("data/Japan_Imports_Exports.csv", {
+    download: true,
+    dynamicTyping: true,
+    complete: function(results) {
+        var dataArray = results.data;
+        var results = [];
+        for (var i = 1; i < dataArray.length; i++) {
+            var info = dataArray[i];
+            var entry = {"country" : info[0], "partner" : info[1], "type" : info[3], 
+                "value" : info[6]};
+            results.push(entry);
+        }
+        japanData = results;
+        if(ready > readyCount) begin();
+        else ready++;
     }
-    console.log(results);
-}
+});
+
+Papa.parse("data/US_Imports_Exports.csv", {
+    download: true,
+    dynamicTyping: true,
+    complete: function(results) {
+        var dataArray = results.data;
+        var results = [];
+        for (var i = 1; i < dataArray.length; i++) {
+            var info = dataArray[i];
+            var entry = {"country" : info[0], "partner" : info[1], "type" : info[3], 
+                "value" : info[6]};
+            results.push(entry);
+        }
+        USData = results;
+        console.log(USData);
+        if(ready > readyCount) begin();
+        else ready++;
+    }
+});
 
 
 var mouseX = 0.0;
@@ -95,45 +151,23 @@ var mouseY = 0.0;
 
 window.onmousemove = function (evt) {
     evt.preventDefault();
-
     var deltaX = evt.clientX - mouseX;
     var deltaY = evt.clientY - mouseY;
-    
     mouseX = evt.clientX;
     mouseY = evt.clientY;
-
     rotateGlobe(deltaX, deltaY);
-    
     scene.updateMatrixWorld()
 }
 
 function rotateGlobe(deltaX, deltaY) {
-
     rotateAroundWorldAxis(selectedGlobe, new THREE.Vector3(0,1,0), deltaX/100);
     rotateAroundWorldAxis(selectedGlobe, new THREE.Vector3(1,0,0), deltaY/100);
-
-
-   // selectedGlobe.rotation.y += deltaX/100;
- //   selectedGlobe.rotation.x += deltaY/100;
-  /* if(selection%2 == 0) selectedGlobe.rotation.x += deltaY/100;
-    else {
-        console.log("z!");
-        selectedGlobe.rotation.x += deltaY/100;
-}*/
 }
 
 var rotWorldMatrix;
 
 // Rotate an object around an arbitrary axis in world space       
 function rotateAroundWorldAxis(object, axis, radians) {
-    /*
-    rotWorldMatrix = new THREE.Matrix4();
-    rotWorldMatrix.makeRotationAxis(axis.normalize(), radians);
-    rotWorldMatrix.multiply(object.matrixWorld);        // pre-multiply
-    object.matrix = rotWorldMatrix;
-    object.rotation.setFromRotationMatrix(object.matrix);
-*/
-    //axis = 
     var scale = object.scale||1
     object.scale = 1
     var pos = new THREE.Vector3()
@@ -160,66 +194,67 @@ function vrDeviceCallback(vrdevs) {
             break;
         }
     }
-    initScene();
-    initRenderer();
-    render();
+
+    if(ready > readyCount) begin();
+    else {
+        ready++;
+    }
+    
 }
 
 function initScene() {
 
     camera = new THREE.PerspectiveCamera(60, 1280 / 800, 0.001, 10);
-    //camera.position.z = 2;
     scene = new THREE.Scene();
-
-    
     nullObject = new THREE.Object3D();
-    //nullObject.position.z = 2;
     scene.add(nullObject);
 
-    
     var globe1 = new Globe(0);
-
-    globe1.arrayOfArrays = "array of arrays!";
-
-    console.log(globe1.arrayOfArrays);
-
-
-    originalMatrix = globe1.matrix;
-
-
-    var translate3 = calculatePoint(-22.9, -43.1);
-    var translate4 = calculatePoint(40.71, -74.01);
-    var mid = calculateSpline(-22.9, -43.1, 40.71, -74.01, 1.5);
-    addCurve(translate3, mid, translate4, globe1);
-
-
-
-
     var globe2 = new Globe(Math.PI/2);
-
-
-    globe1.lookAt(new THREE.Vector3(100,0,-10));
-
-
     var globe3 = new Globe(Math.PI);
     var globe4 = new Globe(Math.PI*1.5);
 
+    var group1 = new THREE.Group();
+    group1.position = globe1.position.clone();
+    globe1.position = new THREE.Vector3(0,0,0);
+    group1.add(globe1);
+    console.log("globe1", globe1)
+    console.log("group1", group1)
 
-    //currentRotation = goalRotation = Math.PI / 2;
-    
+    var group2 = new THREE.Group();
+    group2.position = globe2.position.clone();
+    globe2.position = new THREE.Vector3(0,0,0);
+    group2.add(globe2);
 
-    nullObject.add(globe1);
-    
-    //nullObject.rotation.y = currentRotation;
+    var group3 = new THREE.Group();
+    group3.position = globe3.position.clone();
+    globe3.position = new THREE.Vector3(0,0,0);
+    group3.add(globe3);
 
-    nullObject.add(globe2);
-    
+    var group4 = new THREE.Group();
+    group4.position = globe4.position.clone();
+    globe4.position = new THREE.Vector3(0,0,0);
+    group4.add(globe4);
 
-    nullObject.add(globe3);
-    nullObject.add(globe4);
+    /*maketext("World 2", scene, [0,3,5])
+    maketext("World 1342", scene, [0,10,5])
+    maketext("World JKLDF", scene, [0,1,0])*/
+
+    nullObject.add(group1);
+    nullObject.add(group2);
+    nullObject.add(group3);
+    nullObject.add(group4);
+
+
+    maketext("U.S.A.", nullObject, [0.0,0.25,-0.5], true)
+    maketext("Japan", nullObject, [0.5,.2,0.0], true)
+    maketext("China", nullObject, [-0.5,.2,0.0], true)
+
+    addCSVData(globe1, USData);
+    addCSVData(globe2, chinaData);
+    addCSVData(globe4, japanData);
 
     selectedGlobe = globes[0];
-
     var light = new THREE.DirectionalLight(0x555555);
     light.position.set(0, 1, 0).normalize();
     scene.add(light);
@@ -227,7 +262,6 @@ function initScene() {
     var bottomLight = new THREE.DirectionalLight(0x555555);
     bottomLight.position.set(0, -1, 0).normalize();
     scene.add(bottomLight);
-
 
     var spotlightTarget = new THREE.Object3D();
     spotlightTarget.position.copy(globe1.position);
@@ -243,30 +277,18 @@ function initScene() {
 }
 
 function Globe (angle) {
-
     var geometry    = new THREE.SphereGeometry(1.0, 32, 32);//(0.75, 32, 32);
     var material    = new THREE.MeshPhongMaterial();
     material.map = THREE.ImageUtils.loadTexture('images/map_outline.jpg');
     material.map.minFilter = THREE.NearestFilter;
     var earthMesh    = new THREE.Mesh(geometry, material);
 
-
-    console.log("Before position, local transform: ", earthMesh.matrix);
-
-    //earthMesh.position.z = -2;
-
     earthMesh.position.z = -2*Math.cos(angle);
     earthMesh.position.x = -2*Math.sin(angle);
     earthMesh.position.y = -0.5;
 
-    console.log("After position, local transform: ", earthMesh.matrix);
-
     globes.push(earthMesh);
-
-    
-
     return earthMesh;
-
 }
 
 function initRenderer() {
@@ -274,13 +296,12 @@ function initRenderer() {
     renderer = new THREE.WebGLRenderer({
         canvas: renderCanvas,
     });
-    renderer.setClearColor(0x555555);
+    renderer.setClearColor(0xFFFFFF);//(0x555555);
     renderer.setSize(1280, 800, false);
     vrrenderer = new THREE.VRRenderer(renderer, vrHMD);
 
     renderCanvas.addEventListener('gesturechange', function(e){
         e.preventDefault();
-        console.log(e.scale);
     });
 }
 
@@ -298,10 +319,6 @@ function render() {
     for (var i in globes) {
         if(globes[i] != selectedGlobe) globes[i].rotation.y += 0.01;    
     }
-
-
-    //selectedGlobe.matrix = originalMatrix;
-
     
     dateCurrent = Date.now();
     elapsed = dateCurrent - dateLast;
@@ -319,6 +336,14 @@ function render() {
         currentRotation = goalRotation;
         nullObject.rotation.y = currentRotation;
     }
+
+    for (var i in textMeshes) {
+        //textMeshes[i].lookAt(camera.position);
+       // textMeshes[i].lookAt(textMeshes[i].worldToLocal(new THREE.Vector3(0,0,0)));
+
+
+    }
+
 
     var state = vrHMDSensor.getState();
     camera.quaternion.set(state.orientation.x, state.orientation.y, state.orientation.z, state.orientation.w);
@@ -338,7 +363,6 @@ function calculatePoint(lat, lon) {
  
 
     answer = [x, y, z];
-    console.log(answer);
     return answer;
 }
 
@@ -353,44 +377,91 @@ function calculatePointM(lat, lon, offset) {
  
 
     answer = [x, y, z];
-    console.log(answer);
     return answer;
 }
 
-function calculateSpline_old(slat, slon, elat, elon, offset) {
-    var lat = (slat + elat)/2;
-    var lon = (elon + elon)/2;
-
-    lon -= 9.1;
-
-    var phi = (lat)*Math.PI/180;
-    var theta = (lon-180)*Math.PI/180;
-
-    var x = - offset * Math.cos(phi) * Math.cos(theta);
-    var y =  offset * Math.sin(phi);
-    var z =  offset * Math.cos(phi) * Math.sin(theta);
- 
-
-    answer = [x, y, z];
-    //console.log(answer);
-    return answer;
-}
-
-function calculateSpline(slat, slon, elat, elon, offset) {
-    var p1 = calculatePoint(slat, slon)
-    var p2 = calculatePoint(elat, elon)
-    p1 = new THREE.Vector3().fromArray(p1)
-    p2 = new THREE.Vector3().fromArray(p2)
+function calculateSpline1(origin, dest) {
+    var p1 = new THREE.Vector3().fromArray(origin);
+    var p2 = new THREE.Vector3().fromArray(dest);
     var p3 = new THREE.Vector3()
-    p3.copy(p1)
-    p3.add(p2)
+    p3.addVectors(p1, p2)
     p3.normalize()
-    p3.multiplyScalar(1.4)
-    console.log(p3)
+    p3.multiplyScalar(2)
     return p3.toArray();
 }
 
-function addCurve(arr1, arr2, arr3, object) {
+//reference points for countries
+function initCountry() {
+    //reference points for countries
+    var countriesLL = [
+        ["Canada", 65, -95 ],
+        ["Mexico", 19, -102.4],
+        ["China", 35, 103],
+        ["Japan", 35, 136],
+        ["UK", 54, -2],
+        ["United Kingdom", 54, -2],
+        ["Germany", 51.6, 10],
+        ["Brazil", -10.7, -53],
+        ["Netherlands", 52.2, 4.5],
+        ["HK", 22.3, 114.2],
+        ["Korea", 37.6, 127],
+        ["Saudi", 24, 45],
+        ["Saudi Arabia", 24, 45],
+        ["France", 47, 2],
+        ["India", 21, 78],
+        ["US", 38.9, -90.01],
+        ["United States", 38.9, -90.01],
+        ["Korea, Rep.", 37.6, 127],
+
+        ["South Asia", 21, 78],
+        ["Sub-Saharan Africa", -30, 25],
+        ["Russian Federation", 60, 90],
+        ["North America", 38.9, -90.01],
+
+        ["Hong Kong, China", 35, 103],
+
+        ["Canada", 65, -95 ],
+        ["Mexico", 19, -102.4],
+        ["China", 35, 103],
+        ["Japan", 35, 136],
+        ["UK", 54, -2],
+        ["Germany", 51.6, 10],
+        ["Brazil", -10.7, -53],
+        ["Netherlands", 52.2, 4.5],
+        ["HK", 22.3, 114.2],
+        ["Korea", 37.6, 127],
+        ["Saudi", 24, 45],
+        ["France", 47, 2],
+        ["India", 21, 78],
+        ["US", 38.9, -90.01],
+        ["Russia", 60, 90],
+        ["Vietnam", 21, 105.9],
+        ["Australia", -35.3, 149.1],
+        ["Malaysia", 3.13, 101.8],
+        ["Switzerland", 46.8, 8.4],
+        ["Thailand", 13.75, 100.49],
+        ["Singapore", 1.3, 103.8],
+        ["Thailand", 13.8, 100.5],
+        ["Indonesia", 6.18, 106.8],
+        ["Qatar", 25.3, 51.5]
+    
+    ];
+    
+    countries = {};
+    
+    for (var i = 0; i < countriesLL.length; i++) {
+        var key = countriesLL[i][0];
+        var lat = countriesLL[i][1];
+        var lon = countriesLL[i][2];
+        //countryLL[key] = [lat, lon];
+        var data = calculatePoint(lat, lon);
+        countries[key] = data;
+    };
+    
+    return countries;
+}
+
+function addCurve(arr1, arr2, arr3, object, geometry1, material1, colorHex) {
     var curve = new THREE.QuadraticBezierCurve3(
         new THREE.Vector3( arr1[0], arr1[1], arr1[2]),
         new THREE.Vector3( arr2[0], arr2[1], arr2[2]),
@@ -400,66 +471,119 @@ function addCurve(arr1, arr2, arr3, object) {
     var geometry = new THREE.Geometry();
     geometry.vertices = curve.getPoints( 500 );
 
-    var material = new THREE.LineBasicMaterial( { color : 0xff0000 } );
+    var material = new THREE.LineBasicMaterial( { color : colorHex} );
     material.linewidth = 2;
-    material.opacity = 1.0;
+    material.opacity = 0.5;
     material.transparent = true;
-    console.log(material);
     // Create the final Object3d to add to the scene
     var curveObject = new THREE.Line( geometry, material );
+
     object.add(curveObject);
-
-    var pts = []
-    for (var i = 0; i < 16; i++) {
-        var angle = Math.PI*2*i/16
-        pts.push(new THREE.Vector2(Math.sin(angle), Math.cos(angle)).multiplyScalar(0.3))
-    }
-
-    /*var geometry = new THREE.Geometry();
-    geometry.vertices = curve.getPoints( 500 );
-    var material = new THREE.LineBasicMaterial( { color : 0xff0000 } );
-    material.linewidth = 5;
-    material.opacity = 0.2;
-    material.transparent = true;
-    console.log(material);
-    // Create the final Object3d to add to the scene
-    var curveObject = new THREE.Line( geometry, material );
-    object.add(curveObject);*/
-
-
-    var customMaterial = new THREE.ShaderMaterial({
-        uniforms: 
-        { 
-            "c":   { type: "f", value: 1.0 },
-            "p":   { type: "f", value: 1.4 },
-            glowColor: { type: "c", value: new THREE.Color(0xffff00) },
-            viewVector: { type: "v3", value: camera.position }
-        },
-        vertexShader:   document.getElementById( 'vertexShader'   ).textContent,
-        fragmentShader: document.getElementById( 'fragmentShader' ).textContent,
-        side: THREE.FrontSide,
-        blending: THREE.AdditiveBlending,
-        transparent: true
-    });
-
-
-
-
-    var extrudeSettings = {
-        steps           : 50,
-        //bevelEnabled    : false,
-        extrudePath     : curve,
-        bevelThickness : 1,
-        bevelSize : 1,
-    };
-
-    var shape = new THREE.Shape( pts );
-    var geometry = new THREE.ExtrudeGeometry( shape, extrudeSettings );
     
-    //var material = new THREE.MeshPhongMaterial();
-    var tubeObject = new THREE.Mesh(geometry, customMaterial);
-    object.add(tubeObject);
-
-
+    //adds dest city
+    var city = new THREE.Mesh( geometry1, material1 );
+    city.translateX(arr3[0]);
+    city.translateY(arr3[1]);
+    city.translateZ(arr3[2]);
+    object.add(city);
 }
 
+function addCSVData (sphere, data) {
+
+        var geometry1 = new THREE.SphereGeometry( 0.02, 32, 32 )
+        var material1 = new THREE.MeshPhongMaterial({color: 0xFF0000});
+        var material2 = new THREE.MeshPhongMaterial({color: 0x0000FF});
+
+        //add data points to world
+        var origin = countries[data[0].country];
+
+        //creates a home city
+        var us = new THREE.Mesh( geometry1, material1 );
+        us.translateX(origin[0]);
+        us.translateY(origin[1]);
+        us.translateZ(origin[2]);
+        sphere.add(us);
+       
+
+        maketext(data[0].country, sphere, origin, new THREE.Vector3(0, 0, 0), false);
+        
+        var alreadyDrawn = [];
+        var drawName = true;
+
+        //exports
+        var geometry2 = new THREE.SphereGeometry( 0.015, 32, 32 )
+        for (var i = 0; i < data.length; i++) {
+            var key = data[i].partner;
+            var dest = countries[key];
+            //add the line
+            var mid = calculateSpline1(origin, dest);
+            //add in curve
+            if (data[i].type == "Import"){
+                addCurve(origin, mid, dest, sphere, geometry2, material1, 0xFF0000);
+                console.log("just added red curve");
+            } 
+            else addCurve(origin, mid, dest, sphere, geometry2, material2, 0x0000FF);
+
+            
+            for (var i in alreadyDrawn) {
+                if(alreadyDrawn[i] == key) drawName = false;
+            }
+            if (drawName) maketext(key, sphere, dest, new THREE.Vector3(0, 0, 0), false);
+            drawName = true;
+        
+        }
+}
+
+function maketext(string, parent, coords, title){
+        var text = new THREE.TextGeometry(string, {
+            height : 0.001,
+            size : 0.03,
+            hover : 0,
+
+            //curveSegments : 4,
+            font : 'droid sans', // helvetiker, optimer, gentilis, droid sans, droid serif
+            weight : "normal", // normal bold
+            style : "normal", // normal italic)
+            
+            //bevelThickness : 2,
+            //bevelSize : 1.5,
+            //bevelSegments : 3,
+            //bevelEnabled : false,
+
+            //material: 0,
+            //extrudeMaterial: 1
+
+        });
+        var tmat = new THREE.MeshPhongMaterial( { color: 0xffd630, shading: THREE.FlatShading } );
+        var textmesh = new THREE.Mesh( text, tmat );
+
+        //helper code based on ammulder's example found at:
+        //http://stackoverflow.com/questions/15492857/any-way-to-get-a-bounding-box-from-a-three-js-object3d
+        var helper = new THREE.BoundingBoxHelper(textmesh, 0xff0000);
+        helper.update();
+        var diffx = helper.box.max.x - helper.box.min.x;
+        var diffy = helper.box.max.y - helper.box.min.y;
+
+        var group = new THREE.Group()
+        group.position.x = coords[0]-(diffx/2);
+        group.position.y = coords[1];
+        group.position.z = coords[2];
+
+        parent.add(group);
+        group.add(textmesh);
+        scene.updateMatrixWorld()
+
+        if(title == true) {
+            //scene.updateMatrixWorld()
+            //parent.add(textmesh)
+            //textmesh.position.x = coords[0]-(diffx/2);
+            //textmesh.position.y = coords[1];
+            //textmesh.position.z = coords[2];
+            group.lookAt(group.worldToLocal(new THREE.Vector3(0,0,0)));
+        } else { 
+            textMeshes.push(textmesh);
+            group.position.multiplyScalar(1.1)
+            group.lookAt(group.position.clone().multiplyScalar(2.0));
+        }
+        return textmesh;
+    }
