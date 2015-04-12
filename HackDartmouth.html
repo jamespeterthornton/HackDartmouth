@@ -9,7 +9,6 @@
     </head>
     <body>
 
-
         <!-- ---------------- Custom Shader Code ------------------------ -->
         <script id="vertexShader" type="x-shader/x-vertex">
         uniform vec3 viewVector;
@@ -46,13 +45,14 @@
         }
         </script>
 
-
-
         <canvas id="render-canvas"></canvas>
         <div style="position: fixed; top: 8px; left: 8px; color: white">Hit the F key to engage VR rendering</div>
         <script src="js/three.min.js"></script>
         <script src="js/VRRenderer.js"></script>
+        
+        <script src="js/jquery-2.1.3.js"></script>
+        <script src = "js/papaparse.js"></script>
         <script src="js/HackDartmouth.js"></script>
-        <script src = "js/jquery.csv-0.71.min.js"></script>
+
     </body>
 </html>

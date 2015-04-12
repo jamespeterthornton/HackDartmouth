@@ -71,6 +71,24 @@ function resetGlobeRotation(globe, step) {
 }
 
 
+Papa.parse("data/China_Imports_Exports.csv", {
+    download: true,
+    dynamicTyping: true,
+    complete: function(results) {
+        handleData(results.data);
+    }
+});
+
+function handleData (dataArray) {
+    var results = [];
+    for (var i = 1; i < dataArray.length; i++) {
+        var info = dataArray[i];
+        var entry = {"country" : info[0], "partner" : info[1], "value" : info[6]};
+        results.push(entry);
+    }
+    console.log(results);
+}
+
 
 var mouseX = 0.0;
 var mouseY = 0.0;
