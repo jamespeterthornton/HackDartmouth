@@ -8,13 +8,13 @@ var selection = 0;
 var originalMatrix;
 var countries;
 var ready = 0;
-var readyCount = 2;
+var readyCount = 3;
 
 //var countryLL = {};
 
 var textMeshes = [];
 
-var chinaData, japanData, USData;
+var chinaData, japanData, USData, franceData;
 
 function begin() {
 
@@ -145,6 +145,24 @@ Papa.parse("data/US_Imports_Exports.csv", {
     }
 });
 
+Papa.parse("data/france.csv", {
+    download: true,
+    dynamicTyping: true,
+    complete: function(results) {
+        var dataArray = results.data;
+        var results = [];
+        for (var i = 1; i < dataArray.length; i++) {
+            var info = dataArray[i];
+            var entry = {"country" : info[0], "partner" : info[1], "type" : info[3], 
+                "value" : info[6]};
+            results.push(entry);
+        }
+        franceData = results;
+        if(ready > readyCount) begin();
+        else ready++;
+    }
+});
+
 
 var mouseX = 0.0;
 var mouseY = 0.0;
@@ -247,12 +265,14 @@ function initScene() {
 
 
     maketext("U.S.A.", nullObject, [0.0,0.25,-0.5], true)
-    maketext("Japan", nullObject, [0.5,.2,0.0], true)
-    maketext("China", nullObject, [-0.5,.2,0.0], true)
+    maketext("Japan", nullObject, [0.5,.25,0.0], true)
+    maketext("China", nullObject, [-0.5,.25,0.0], true)
+    maketext("France", nullObject, [0.0, 0.25, 0.5], true)
 
     addCSVData(globe1, USData);
     addCSVData(globe2, chinaData);
     addCSVData(globe4, japanData);
+    addCSVData(globe3, franceData);
 
     selectedGlobe = globes[0];
     var light = new THREE.DirectionalLight(0x555555);
@@ -283,8 +303,8 @@ function Globe (angle) {
     material.map.minFilter = THREE.NearestFilter;
     var earthMesh    = new THREE.Mesh(geometry, material);
 
-    earthMesh.position.z = -2*Math.cos(angle);
-    earthMesh.position.x = -2*Math.sin(angle);
+    earthMesh.position.z = -2.25*Math.cos(angle);
+    earthMesh.position.x = -2.25*Math.sin(angle);
     earthMesh.position.y = -0.5;
 
     globes.push(earthMesh);
@@ -443,7 +463,11 @@ function initCountry() {
         ["Singapore", 1.3, 103.8],
         ["Thailand", 13.8, 100.5],
         ["Indonesia", 6.18, 106.8],
-        ["Qatar", 25.3, 51.5]
+        ["Qatar", 25.3, 51.5],
+        ["Belgium", 50.9, 4.35],
+        ["Italy", 41.9, 12.5],
+        ["Spain", 40.43, -3.7],
+
     
     ];
     
@@ -510,19 +534,26 @@ function addCSVData (sphere, data) {
         var alreadyDrawn = [];
         var drawName = true;
 
+
+        var total = 0;
+        for (var i in data) {
+            if (data[i].value > total) total = data[i].value;
+        }
+
         //exports
         var geometry2 = new THREE.SphereGeometry( 0.015, 32, 32 )
         for (var i = 0; i < data.length; i++) {
             var key = data[i].partner;
             var dest = countries[key];
             //add the line
+            console.log(key);
             var mid = calculateSpline1(origin, dest);
             //add in curve
             if (data[i].type == "Import"){
-                addCurve(origin, mid, dest, sphere, geometry2, material1, 0xFF0000);
+                addCurve1(sphere, geometry2, material2, origin, dest, total, data[i].value, false);
                 console.log("just added red curve");
             } 
-            else addCurve(origin, mid, dest, sphere, geometry2, material2, 0x0000FF);
+            else addCurve1(sphere, geometry2, material2, origin, dest, total, data[i].value, true);
 
             
             for (var i in alreadyDrawn) {
@@ -587,3 +618,154 @@ function maketext(string, parent, coords, title){
         }
         return textmesh;
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function addCurve1(object, geometry1, material1, start, end, total, value, isExport) {
+    var vector1 = new THREE.Vector3().fromArray(start);
+    var vector2 = new THREE.Vector3().fromArray(end);
+
+
+    var mid = vector1.clone().add(vector2).divideScalar(2);
+    
+    var distance = vector1.clone().sub(vector2);
+    var distanceBetweenCountryCenter = distance.length();
+    
+
+    mid.normalize();
+    var midLength = mid.length();
+
+    
+    var firstQ = vector1.clone().add(mid).divideScalar(2);
+    firstQ.normalize();
+
+
+    var secondQ = mid.clone().add(vector2).divideScalar(2);
+    secondQ.normalize();
+
+    var scalar = 1+distanceBetweenCountryCenter/2;
+
+    if (isExport) {
+        firstQ.multiplyScalar(scalar + 0.25);
+    
+        secondQ.multiplyScalar(scalar + 0.25);
+    }
+    else 
+    {
+        firstQ.multiplyScalar(scalar - 0.25);
+    
+        secondQ.multiplyScalar(scalar - 0.25);
+    }
+    var curve = new THREE.CubicBezierCurve3(
+        vector1, 
+        firstQ,
+        secondQ,
+        vector2
+    );
+
+    var width = 0.005 + 0.04*value/total;
+
+    var geometry = new THREE.TubeGeometry(curve, 20, width, 8, false);
+    //geometry.vertices = curve.getPoints( 500 );
+
+    var colorHex;
+    if (isExport == true) colorHex = 0x0000FF;
+    else colorHex = 0xFF0000;
+
+    var material = new THREE.MeshPhongMaterial(
+         { color : colorHex, 
+            wireframe: false
+         });
+    //material.linewidth = 1;
+    material.opacity = 0.3 + 1.4*value/total;
+    material.transparent = true;
+
+    
+    // Create the final Object3d to add to the scene
+    var curveObject = new THREE.Mesh( geometry, material );
+
+    object.add(curveObject);
+
+    //7 = huge; 14 is small
+    function setGlow(obj, val, total){
+        console.log(val);
+        var glowMesh = new THREEx.GeometricGlowMesh(curveObject, 10+(10*(val/total)));
+        obj.add(glowMesh.object3d);
+    
+        var color;
+        if(isExport == true) color = "blue";
+        else color = "red"
+
+        var insideUniforms  = glowMesh.insideMesh.material.uniforms;
+        insideUniforms.glowColor.value.set(color);
+        var outsideUniforms = glowMesh.outsideMesh.material.uniforms;
+        outsideUniforms.glowColor.value.set(color);
+    }
+
+    //setGlow(curveObject, value , total);
+    var material2 = new THREE.MeshPhongMaterial({color: 0xFFFFFF});
+    var city = new THREE.Mesh( geometry1, material2 );
+    city.translateX(end[0]);
+    city.translateY(end[1]);
+    city.translateZ(end[2]);
+    object.add(city);
+}
+
+
+
+
+
+
+
+
+
+
+
+/*
+    //exports
+    var total = 0;
+    var geometry2 = new THREE.SphereGeometry( 0.015, 32, 32 )
+    for (var i = 0; i < USEcondata[0].length; i++) {
+        total += USEcondata[0][i][1];
+    }
+    console.log("total " + total);
+
+    for (var i = 0; i < USEcondata[0].length; i++) {
+        var key = USEcondata[0][i][0];
+        var lat = countries[key];
+        //console.log(key);
+        //console.log(countries[key]);
+        var dest = countries[key];
+        
+        var value = USEcondata[0][i][1];
+
+        addCurve1(sphere1, geometry1, material1, origin, dest, total, value);
+    }
+
+    origin =  countries["test"];
+    var dest = countries["test1"];
+    //addCurve1(sphere1, geometry1, material1, origin, dest  );
+
+
+*/
