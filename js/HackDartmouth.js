@@ -36,6 +36,7 @@ window.addEventListener("keypress", function(e) {
 
 window.onkeydown = function(e) {
     if (e.keyCode == 37) {
+        //left arrow pressed
         goalRotation += Math.PI / 2;
         resetGlobeRotation(selectedGlobe, (0 - selectedGlobe.rotation.x)/10);
         selection -= 1;
@@ -43,13 +44,18 @@ window.onkeydown = function(e) {
         selection = selection % globes.length;
         selectedGlobe = globes[selection];
     } else if (e.keyCode == 39) {
+        //right arrow pressed
         goalRotation -= Math.PI / 2;
-
-
         resetGlobeRotation(selectedGlobe, (0 - selectedGlobe.rotation.x)/10);
         selection +=1;
         selection = selection % globes.length;
         selectedGlobe = globes[selection];
+    } else if (e.keyCode == 82) {
+        //r pressed
+        rotateAroundWorldAxis(selectedGlobe, new THREE.Vector3(0,0,1), Math.PI/20);
+    } else if (e.keyCode == 69) {
+        //e pressed
+        rotateAroundWorldAxis(selectedGlobe, new THREE.Vector3(0,0,1), -Math.PI/20);
     }
 }
 
@@ -63,6 +69,8 @@ function resetGlobeRotation(globe, step) {
         requestAnimationFrame(function(){resetGlobeRotation(globe, step)});
     } 
 }
+
+
 
 var mouseX = 0.0;
 var mouseY = 0.0;
@@ -108,11 +116,10 @@ function rotateAroundWorldAxis(object, axis, radians) {
     object.rotation.setFromRotationMatrix(object.matrix);
 */
     //axis = 
-    var scale = object.scale
+    var scale = object.scale||1
     object.scale = 1
     var pos = new THREE.Vector3()
     pos.copy(object.position)
-    console.log(pos)
     object.position.set(0,0,0)
     object.updateMatrixWorld()
     object.worldToLocal(axis);
@@ -154,8 +161,20 @@ function initScene() {
     
     var globe1 = new Globe(0);
 
+    globe1.arrayOfArrays = "array of arrays!";
+
+    console.log(globe1.arrayOfArrays);
+
 
     originalMatrix = globe1.matrix;
+
+
+    var translate3 = calculatePoint(-22.9, -43.1);
+    var translate4 = calculatePoint(40.71, -74.01);
+    var mid = calculateSpline(-22.9, -43.1, 40.71, -74.01, 1.5);
+    addCurve(translate3, mid, translate4, globe1);
+
+
 
 
     var globe2 = new Globe(Math.PI/2);
@@ -207,7 +226,7 @@ function initScene() {
 
 function Globe (angle) {
 
-    var geometry    = new THREE.SphereGeometry(0.75, 32, 32);
+    var geometry    = new THREE.SphereGeometry(1.0, 32, 32);//(0.75, 32, 32);
     var material    = new THREE.MeshPhongMaterial();
     material.map = THREE.ImageUtils.loadTexture('images/map_outline.jpg');
     material.map.minFilter = THREE.NearestFilter;
@@ -226,6 +245,8 @@ function Globe (angle) {
 
     globes.push(earthMesh);
 
+    
+
     return earthMesh;
 
 }
@@ -238,6 +259,11 @@ function initRenderer() {
     renderer.setClearColor(0x555555);
     renderer.setSize(1280, 800, false);
     vrrenderer = new THREE.VRRenderer(renderer, vrHMD);
+
+    renderCanvas.addEventListener('gesturechange', function(e){
+        e.preventDefault();
+        console.log(e.scale);
+    });
 }
 
 var dateLast = Date.now();
@@ -271,9 +297,151 @@ function render() {
             currentRotation -= stepSize * elapsed/50;
             nullObject.rotation.y = currentRotation;
         }
+    } else if (goalRotation != currentRotation) {
+        currentRotation = goalRotation;
+        nullObject.rotation.y = currentRotation;
     }
 
     var state = vrHMDSensor.getState();
     camera.quaternion.set(state.orientation.x, state.orientation.y, state.orientation.z, state.orientation.w);
     vrrenderer.render(scene, camera);
 }
+
+
+
+function calculatePoint(lat, lon) {
+    lon -= 9.1;
+    var phi = (lat)*Math.PI/180;
+    var theta = (lon-180)*Math.PI/180;
+ 
+    var x = - Math.cos(phi) * Math.cos(theta);
+    var y =  Math.sin(phi);
+    var z =  Math.cos(phi) * Math.sin(theta);
+ 
+
+    answer = [x, y, z];
+    console.log(answer);
+    return answer;
+}
+
+function calculatePointM(lat, lon, offset) {
+    lon -= 9.1;
+    var phi = (lat)*Math.PI/180;
+    var theta = (lon-180)*Math.PI/180;
+ 
+    var x = -offset * Math.cos(phi) * Math.cos(theta);
+    var y =  offset * Math.sin(phi);
+    var z =  offset * Math.cos(phi) * Math.sin(theta);
+ 
+
+    answer = [x, y, z];
+    console.log(answer);
+    return answer;
+}
+
+function calculateSpline_old(slat, slon, elat, elon, offset) {
+    var lat = (slat + elat)/2;
+    var lon = (elon + elon)/2;
+
+    lon -= 9.1;
+
+    var phi = (lat)*Math.PI/180;
+    var theta = (lon-180)*Math.PI/180;
+
+    var x = - offset * Math.cos(phi) * Math.cos(theta);
+    var y =  offset * Math.sin(phi);
+    var z =  offset * Math.cos(phi) * Math.sin(theta);
+ 
+
+    answer = [x, y, z];
+    //console.log(answer);
+    return answer;
+}
+
+function calculateSpline(slat, slon, elat, elon, offset) {
+    var p1 = calculatePoint(slat, slon)
+    var p2 = calculatePoint(elat, elon)
+    p1 = new THREE.Vector3().fromArray(p1)
+    p2 = new THREE.Vector3().fromArray(p2)
+    var p3 = new THREE.Vector3()
+    p3.copy(p1)
+    p3.add(p2)
+    p3.normalize()
+    p3.multiplyScalar(1.4)
+    console.log(p3)
+    return p3.toArray();
+}
+
+function addCurve(arr1, arr2, arr3, object) {
+    var curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3( arr1[0], arr1[1], arr1[2]),
+        new THREE.Vector3( arr2[0], arr2[1], arr2[2]),
+        new THREE.Vector3( arr3[0], arr3[1], arr3[2])
+    );
+
+    var geometry = new THREE.Geometry();
+    geometry.vertices = curve.getPoints( 500 );
+
+    var material = new THREE.LineBasicMaterial( { color : 0xff0000 } );
+    material.linewidth = 2;
+    material.opacity = 1.0;
+    material.transparent = true;
+    console.log(material);
+    // Create the final Object3d to add to the scene
+    var curveObject = new THREE.Line( geometry, material );
+    object.add(curveObject);
+
+    var pts = []
+    for (var i = 0; i < 16; i++) {
+        var angle = Math.PI*2*i/16
+        pts.push(new THREE.Vector2(Math.sin(angle), Math.cos(angle)).multiplyScalar(0.3))
+    }
+
+    /*var geometry = new THREE.Geometry();
+    geometry.vertices = curve.getPoints( 500 );
+    var material = new THREE.LineBasicMaterial( { color : 0xff0000 } );
+    material.linewidth = 5;
+    material.opacity = 0.2;
+    material.transparent = true;
+    console.log(material);
+    // Create the final Object3d to add to the scene
+    var curveObject = new THREE.Line( geometry, material );
+    object.add(curveObject);*/
+
+
+    var customMaterial = new THREE.ShaderMaterial({
+        uniforms: 
+        { 
+            "c":   { type: "f", value: 1.0 },
+            "p":   { type: "f", value: 1.4 },
+            glowColor: { type: "c", value: new THREE.Color(0xffff00) },
+            viewVector: { type: "v3", value: camera.position }
+        },
+        vertexShader:   document.getElementById( 'vertexShader'   ).textContent,
+        fragmentShader: document.getElementById( 'fragmentShader' ).textContent,
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        transparent: true
+    });
+
+
+
+
+    var extrudeSettings = {
+        steps           : 50,
+        //bevelEnabled    : false,
+        extrudePath     : curve,
+        bevelThickness : 1,
+        bevelSize : 1,
+    };
+
+    var shape = new THREE.Shape( pts );
+    var geometry = new THREE.ExtrudeGeometry( shape, extrudeSettings );
+    
+    //var material = new THREE.MeshPhongMaterial();
+    var tubeObject = new THREE.Mesh(geometry, customMaterial);
+    object.add(tubeObject);
+
+
+}
+
