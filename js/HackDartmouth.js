@@ -308,7 +308,7 @@ function Globe (angle) {
     earthMesh.position.y = -0.5;
 
     globes.push(earthMesh);
-    return earthMesh;
+    return earthMesh; 
 }
 
 function initRenderer() {
